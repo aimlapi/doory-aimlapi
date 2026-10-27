@@ -46,7 +46,8 @@ Style settings that help with hosted APIs (the admin's help lists every setting 
   whose image field takes a URL (`json` and `custom` styles).
 - `option_fields`: renames task options or leaves them out, e.g. `{"scale": "upscale_factor"}`, or
   `{"scale": ""}` for a server that has no such option or uses the name for something else (`multipart`,
-  `json`, `mask` and `custom` styles).
+  `json`, `mask` and `custom` styles). A new name may not be one the request already uses (the image, model
+  or options field, or an `extra_fields` key).
 
 ## Upscaling
 
@@ -58,7 +59,8 @@ stays the default until the user picks another option; the editor remembers the 
 - The request carries the option `scale` (2 or 4). Doory scales the server's result to exactly that many times
   the picture's size, so a server that always answers at a fixed size works too, as long as it keeps the shape.
 - A result over the upload limits (12,000 px a side, 80 megapixels) is refused before the server is called. A
-  result too large for an upload as PNG is stored as WebP.
+  result too large for an upload as PNG is stored as WebP; one too large even then is refused, so choose a
+  smaller scale.
 - Assistants use `upscale_asset` (MCP), and scripts `POST /api/v1/ai/upscale/` with
   `{"asset_id": "…", "model": "…", "options": {"scale": 2}}`. The models are listed by `list_ai_models` with
   `task="upscale"`, or `GET /api/v1/ai/models/?task=upscale`.

@@ -325,6 +325,12 @@ class ApiStyle:
         config = replace(StyleConfig(), **values)
         if config.body == "json" and config.send_as == "file":
             config = replace(config, send_as="base64")
+        taken = {config.file_field, config.model_field, config.options_field, *config.extra_fields} - {""}
+        for option, name in config.option_fields.items():
+            if name in taken:
+                raise ConfigError(
+                    f"option_fields.{option} sends the option as {name!r}, a field already in use."
+                )
         return config
 
     # -- requests ----------------------------------------------------------------------------------------

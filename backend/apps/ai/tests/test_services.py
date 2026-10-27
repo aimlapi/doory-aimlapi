@@ -354,6 +354,23 @@ def test_a_result_too_large_for_an_upload_as_png_is_kept_as_webp(user, settings)
     assert (stored.mime, stored.width, stored.height) == ("image/webp", 128, 64)
 
 
+def test_a_result_too_large_even_as_webp_is_refused(settings):
+    source = SourceImage(png(Image.new("RGB", (64, 32))), "image/png", 64, 32)
+    answer = png(Image.effect_noise((128, 64), 64).convert("RGB"))
+    settings.MAX_UPLOAD_BYTES = 64
+    with pytest.raises(AIProviderError) as caught:
+        from_image(TASKS[UPSCALE], source, answer, {"scale": 2})
+    assert caught.value.code == "too_large"
+
+
+def test_a_same_size_result_too_large_for_an_upload_stays_png(settings):
+    source = SourceImage(png(Image.new("RGB", (64, 32))), "image/png", 64, 32)
+    answer = png(Image.radial_gradient("L").convert("RGBA").resize((64, 32)))
+    settings.MAX_UPLOAD_BYTES = 64
+    cut_out = from_image(TASKS["background-removal"], source, answer)
+    assert cut_out[:4] == b"\x89PNG"
+
+
 def test_upscale_is_offered_on_the_device_without_a_model(monkeypatch):
     monkeypatch.setattr(catalog, "device_available", real_device_available)
     monkeypatch.setattr(catalog, "best_installed", lambda task: None)

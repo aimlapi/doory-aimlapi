@@ -1,6 +1,6 @@
 """Turning what a provider answered into a safe PNG: decoded with Pillow under the upload limits (no
 decompression bombs), checked against the size the task asks for, a mask applied to the source, alpha required
-where the task promises it. A result too large for an upload as PNG is kept as WebP instead."""
+where the task promises it. A resized result too large for an upload as PNG is kept as WebP instead."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ from .tasks import Task, result_size
 
 RESULT_FORMATS = ["PNG", "WEBP", "JPEG", "GIF", "AVIF"]
 ASPECT_TOLERANCE = 0.01
-WEBP_QUALITY = 90
+WEBP_QUALITIES = (90, 80, 70)
 
 
 @dataclass(frozen=True)
@@ -117,14 +117,20 @@ def _png(image: Image.Image) -> bytes:
     return out.getvalue()
 
 
-def _encode(image: Image.Image) -> bytes:
-    """`image` as PNG, or as WebP when the PNG is larger than an upload may be (a large upscaled photo)."""
+def _encode(task: Task, image: Image.Image) -> bytes:
+    """`image` as PNG. For a task that changes the size (a large upscaled photo), WebP at falling quality
+    when the PNG is larger than an upload may be; a same-size result (a cut-out) stays lossless."""
     data = _png(image)
-    if len(data) <= settings.MAX_UPLOAD_BYTES:
+    if len(data) <= settings.MAX_UPLOAD_BYTES or task.same_size:
         return data
-    out = BytesIO()
-    image.save(out, "WEBP", quality=WEBP_QUALITY, method=4)
-    return out.getvalue()
+    for quality in WEBP_QUALITIES:
+        out = BytesIO()
+        image.save(out, "WEBP", quality=quality, method=4)
+        if out.tell() <= settings.MAX_UPLOAD_BYTES:
+            return out.getvalue()
+    raise AIProviderError(
+        "too_large", "The result is too large to store, even compressed. Choose a smaller scale."
+    )
 
 
 def from_image(
@@ -150,7 +156,7 @@ def from_image(
                 result = result.convert("RGBA" if _has_alpha(result) else "RGB")
             if size is not None:
                 result = _fit(result, *size, any_aspect=False)
-            return _encode(result)
+            return _encode(task, result)
     except ImageBusy as exc:
         raise _busy(exc) from exc
 
